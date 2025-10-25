@@ -6,5 +6,5 @@ import android.graphics.drawable.Drawable
 data class AppModelUi(
     val icon: Drawable,
     val name: String,
-    val intent: Intent
+    val packageName: String
 )

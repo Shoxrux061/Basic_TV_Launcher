@@ -11,20 +11,26 @@ class AppListRepositoryImpl @Inject constructor(
 ) : AppListRepository {
 
     override suspend fun getAppList(): List<AppModelUi> {
-        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
-        }
+        val launchIntents = listOf(
+            Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            },
+            Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+            }
+        )
 
-        val activities = packageManager.queryIntentActivities(mainIntent, 0)
+        val activities = launchIntents.flatMap { intent ->
+            packageManager.queryIntentActivities(intent, 0)
+        }.distinctBy { it.activityInfo.packageName }
 
         return activities.map { info ->
             AppModelUi(
                 icon = info.loadIcon(packageManager),
                 name = info.loadLabel(packageManager).toString(),
-                intent = packageManager.getLaunchIntentForPackage(
-                    info.activityInfo.packageName
-                )!!
+                packageName = info.activityInfo.packageName
             )
         }
     }
+
 }
