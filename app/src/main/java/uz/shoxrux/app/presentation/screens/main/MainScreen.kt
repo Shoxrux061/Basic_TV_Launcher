@@ -3,6 +3,7 @@ package uz.shoxrux.app.presentation.screens.main
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Card
@@ -35,6 +37,11 @@ fun MainScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
 
+    LaunchedEffect(state.error) {
+        Log.d("`TAGError`", "MainScreen: ${state.error}")
+    }
+
+
 
     LaunchedEffect(Unit) {
         viewModel.onIntent(MainScreenIntent.LoadApps)
@@ -43,8 +50,36 @@ fun MainScreen(viewModel: MainViewModel) {
         viewModel.effect.collect { e ->
             when (e) {
                 is MainScreenEffect.OpenApp -> {
-                    val intent = context.packageManager.getLaunchIntentForPackage(e.packageName)
-                    intent?.let { context.startActivity(it) }
+                    try {
+                        val launchIntent =
+                            context.packageManager.getLaunchIntentForPackage(e.packageName)
+                        if (launchIntent != null) {
+                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(launchIntent)
+                        } else if (e.packageName == "com.android.tv.settings") {
+
+                            val settingsIntent =
+                                Intent(android.provider.Settings.ACTION_SETTINGS).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                            context.startActivity(settingsIntent)
+                        } else {
+                            Log.w("TAGLauncher", "App ${e.packageName} has no launch intent")
+                            Toast.makeText(
+                                context,
+                                "Невозможно запустить ${e.packageName}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } catch (ex: Exception) {
+                        Log.e(
+                            "TAGLauncher",
+                            "Ошибка при запуске ${e.packageName}: ${ex.message}",
+                            ex
+                        )
+                        Toast.makeText(context, "Ошибка при запуске приложения", Toast.LENGTH_SHORT)
+                            .show()
+                    }
                 }
 
                 is MainScreenEffect.OpenLauncherChooser -> {
@@ -58,7 +93,6 @@ fun MainScreen(viewModel: MainViewModel) {
                     context.startActivity(chooser)
                 }
 
-
                 is MainScreenEffect.ShowSetLauncherDialog -> {
                     viewModel.onIntent(MainScreenIntent.AskSetLauncher)
                 }
@@ -71,7 +105,7 @@ fun MainScreen(viewModel: MainViewModel) {
             CircularProgressIndicator(Modifier.align(Alignment.Center))
         } else {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(state.appList.size) { index ->
                     val app = state.appList[index]
@@ -106,7 +140,7 @@ fun AppItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 50.dp),
         onClick = onAppClicked,
     ) {
 
@@ -135,12 +169,22 @@ fun AppItem(
 fun SetLauncherDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Сделать приложение лаунчером?") },
-        text = { Text("Это заменит стандартный лаунчер Android TV.") },
+        title = {
+            Text(
+                color = Color.Black,
+                text = "Сделать приложение лаунчером?"
+            )
+        },
+        text = {
+            Text(
+                text = "Это заменит стандартный лаунчер Android TV.",
+                color = Color.Black,
+            )
+        },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors()
+                colors = ButtonDefaults.buttonColors(Color.Black)
             ) { Text("Да") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Нет") } }
